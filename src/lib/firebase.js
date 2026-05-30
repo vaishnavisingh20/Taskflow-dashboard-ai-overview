@@ -3,12 +3,23 @@ import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyBogvhoBNG4DcKYnxjA3ktsqr15sPW91Sk",
-  authDomain: "taskflow-dashboard-a6b9b.firebaseapp.com",
-  projectId: "taskflow-dashboard-a6b9b",
-  storageBucket: "taskflow-dashboard-a6b9b.firebasestorage.app",
-  messagingSenderId: "715288806179",
-  appId: "1:715288806179:web:ce7641332b2a2d26368296"
+  apiKey:
+    process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+
+  authDomain:
+    process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+
+  projectId:
+    process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+
+  storageBucket:
+    process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+
+  messagingSenderId:
+    process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+
+  appId:
+    process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
 const app = initializeApp(firebaseConfig);
