@@ -30,10 +30,17 @@ export default function Dashboard() {
   const [description, setDescription] = useState("");
 
   const [editingId, setEditingId] = useState(null);
+  const [generatedSubtasks, setGeneratedSubtasks] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const fetchTasks = async () => {
-    if (!auth.currentUser) return;
+const fetchTasks = async () => {
+  if (!auth.currentUser) return;
 
+  setLoading(true);
+
+  try {
     const q = query(
       collection(db, "tasks"),
       where("userId", "==", auth.currentUser.uid)
@@ -47,7 +54,12 @@ export default function Dashboard() {
     }));
 
     setTasks(data);
-  };
+  } catch (error) {
+    console.error("Error fetching tasks:", error);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const createTask = async () => {
     if (!title.trim()) {
@@ -55,18 +67,51 @@ export default function Dashboard() {
       return;
     }
 
-    await addDoc(collection(db, "tasks"), {
-      title,
-      description,
-      status: "Pending",
-      userId: auth.currentUser.uid,
-      createdAt: new Date(),
-    });
-
+  await addDoc(collection(db, "tasks"), {
+    title,
+    description,
+    subtasks: generatedSubtasks,
+    status: "Pending",
+    userId: auth.currentUser?.uid || "",
+    createdAt: new Date(),
+  });
+    setGeneratedSubtasks("");
     setTitle("");
     setDescription("");
 
     fetchTasks();
+  };
+
+  const generateSubtasks = async () => {
+  if (!title.trim()) {
+    alert("Please enter task title first");
+    return;
+  }
+
+  try {
+    setAiLoading(true);
+
+    const response = await fetch(
+      "/api/generate-subtasks",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          task: title,
+        }),
+      }
+    );
+
+    const data = await response.json();
+
+    setGeneratedSubtasks(data.subtasks);
+  } catch (error) {
+    alert("AI generation failed");
+  } finally {
+    setAiLoading(false);
+  }
   };
 
   const updateTask = async () => {
@@ -81,7 +126,7 @@ export default function Dashboard() {
     setEditingId(null);
     setTitle("");
     setDescription("");
-
+    setGeneratedSubtasks("");
     fetchTasks();
   };
 
@@ -109,8 +154,14 @@ export default function Dashboard() {
   };
 
   useEffect(() => {
-    fetchTasks();
-  }, []);
+  const unsubscribe = auth.onAuthStateChanged((user) => {
+    if (user) {
+      fetchTasks();
+    }
+  });
+
+  return () => unsubscribe();
+}, []);
 
   const pendingTasks = tasks.filter(
     (task) => task.status === "Pending"
@@ -134,13 +185,34 @@ export default function Dashboard() {
   const COLORS = ["#3B82F6", "#10B981"];
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white p-8">
+    <div className="min-h-screen bg-slate-950 text-white p-4 md:p-8">
 
       <div className="max-w-6xl mx-auto">
 
-        <h1 className="text-4xl font-bold mb-2">
-          TaskFlow Dashboard
-        </h1>
+        <div className="flex justify-between items-center mb-4">
+
+  <h1 className="text-2xl md:text-4xl font-bold">
+    TaskFlow Dashboard
+  </h1>
+
+  <button
+    onClick={() => setMenuOpen(!menuOpen)}
+    className="md:hidden bg-slate-800 px-3 py-2 rounded-lg"
+  >
+    ☰
+  </button>
+
+</div>
+
+{
+  menuOpen && (
+    <div className="md:hidden bg-slate-900 rounded-lg p-4 mb-4">
+      <p>Dashboard</p>
+      <p>Analytics</p>
+      <p>Tasks</p>
+    </div>
+  )
+}
 
         <p className="text-slate-400 mb-8">
           Logged in as {auth.currentUser?.email}
@@ -174,7 +246,23 @@ export default function Dashboard() {
             className="w-full p-3 rounded-lg bg-slate-800 mb-4 outline-none"
           />
 
-          <div className="flex gap-3">
+          {
+  generatedSubtasks && (
+    <div className="bg-slate-800 rounded-lg p-4 mb-4">
+
+      <h3 className="font-semibold mb-2">
+        AI Generated Subtasks
+      </h3>
+
+      <pre className="whitespace-pre-wrap text-sm">
+        {generatedSubtasks}
+      </pre>
+
+    </div>
+  )
+}
+
+          <div className="flex flex-col sm:flex-row gap-3">
 
             <button
               onClick={
@@ -188,7 +276,16 @@ export default function Dashboard() {
                 ? "Update Task"
                 : "Add Task"}
             </button>
-
+              <button
+  onClick={generateSubtasks}
+  className="bg-purple-600 px-5 py-2 rounded-lg hover:bg-purple-700"
+>
+  {
+    aiLoading
+      ? "Generating..."
+      : "Generate AI Subtasks"
+  }
+</button>
             {editingId && (
               <button
                 onClick={() => {
@@ -243,10 +340,12 @@ export default function Dashboard() {
             Task Analytics
           </h2>
 
-          <PieChart
-            width={400}
-            height={300}
-          >
+          <div className="flex justify-center overflow-x-auto">
+
+  <PieChart
+    width={350}
+    height={300}
+  >
             <Pie
               data={chartData}
               dataKey="value"
@@ -272,12 +371,14 @@ export default function Dashboard() {
             <Tooltip />
             <Legend />
           </PieChart>
-
+</div>
         </div>
 
-        <h2 className="text-2xl font-semibold mb-4">
-          My Tasks
-        </h2>
+        {loading && (
+  <div className="mb-4 text-blue-400">
+    Loading tasks...
+  </div>
+)}
 
         {tasks.length === 0 ? (
           <div className="bg-slate-900 rounded-xl p-8 text-center text-slate-400">
@@ -296,6 +397,21 @@ export default function Dashboard() {
               <p className="text-slate-400 mt-2">
                 {task.description}
               </p>
+              {
+  task.subtasks && (
+    <div className="mt-3 bg-slate-800 p-3 rounded-lg">
+
+      <p className="font-semibold mb-2">
+        AI Subtasks
+      </p>
+
+      <pre className="whitespace-pre-wrap text-sm">
+        {task.subtasks}
+      </pre>
+
+    </div>
+  )
+}
 
               <p className="mt-3">
                 Status:
@@ -311,7 +427,7 @@ export default function Dashboard() {
                 </span>
               </p>
 
-              <div className="flex gap-3 mt-5">
+              <div className="flex flex-col sm:flex-row gap-3 mt-5">
 
                 <button
                   onClick={() => {
