@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 
 import {
   collection,
@@ -14,15 +14,19 @@ import {
 } from "firebase/firestore";
 
 import { auth, db } from "../../lib/firebase";
+import dynamic from "next/dynamic";
 
-import {
-  PieChart,
-  Pie,
-  Tooltip,
-  Legend,
-  Cell,
-} from "recharts";
+const TaskAnalytics = dynamic(
+  () =>
+    import(
+      "../../components/TaskAnalytics"
+    ),
+  {
+    ssr: false,
+  }
+);
 
+  const COLORS = ["#3B82F6", "#10B981"];
 export default function Dashboard() {
   const [tasks, setTasks] = useState([]);
 
@@ -163,13 +167,21 @@ const fetchTasks = async () => {
   return () => unsubscribe();
 }, []);
 
-  const pendingTasks = tasks.filter(
-    (task) => task.status === "Pending"
-  ).length;
+const pendingTasks = useMemo(
+  () =>
+    tasks.filter(
+      (task) => task.status === "Pending"
+    ).length,
+  [tasks]
+);
 
-  const completedTasks = tasks.filter(
-    (task) => task.status === "Completed"
-  ).length;
+const completedTasks = useMemo(
+  () =>
+    tasks.filter(
+      (task) => task.status === "Completed"
+    ).length,
+  [tasks]
+);
 
   const chartData = [
     {
@@ -182,7 +194,7 @@ const fetchTasks = async () => {
     },
   ];
 
-  const COLORS = ["#3B82F6", "#10B981"];
+
 
   return (
     <div className="min-h-screen bg-slate-950 text-white p-4 md:p-8">
@@ -340,38 +352,9 @@ const fetchTasks = async () => {
             Task Analytics
           </h2>
 
-          <div className="flex justify-center overflow-x-auto">
-
-  <PieChart
-    width={350}
-    height={300}
-  >
-            <Pie
-              data={chartData}
-              dataKey="value"
-              nameKey="name"
-              outerRadius={100}
-              label
-            >
-              {chartData.map(
-                (entry, index) => (
-                  <Cell
-                    key={index}
-                    fill={
-                      COLORS[
-                        index %
-                          COLORS.length
-                      ]
-                    }
-                  />
-                )
-              )}
-            </Pie>
-
-            <Tooltip />
-            <Legend />
-          </PieChart>
-</div>
+<TaskAnalytics
+  chartData={chartData}
+/>
         </div>
 
         {loading && (
