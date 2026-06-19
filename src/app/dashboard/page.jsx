@@ -74,7 +74,7 @@ const fetchTasks = async () => {
   await addDoc(collection(db, "tasks"), {
     title,
     description,
-    subtasks: generatedSubtasks,
+    subtasks: generatedSubtasks || "",
     status: "Pending",
     userId: auth.currentUser?.uid || "",
     createdAt: new Date(),
